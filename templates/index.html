@@ -20,6 +20,7 @@
             display: flex;
             gap: 10px;
             border-bottom: 1px solid #444;
+            align-items: center;
         }
         button {
             background: #0e639c;
@@ -28,8 +29,12 @@
             padding: 5px 15px;
             cursor: pointer;
             font-size: 14px;
+            border-radius: 3px;
         }
+        button:hover { background: #1177bb; }
         button.stop { background: #a10000; }
+        button.stop:hover { background: #cc0000; }
+        
         .main {
             display: flex;
             flex: 1;
@@ -50,9 +55,11 @@
             border: none;
             resize: none;
             outline: none;
-            font-family: inherit;
+            font-family: 'Consolas', 'Courier New', monospace;
             font-size: 16px;
             padding: 10px;
+            line-height: 1.5;
+            tab-size: 4; /* Размер таба */
         }
         .terminal-window {
             flex: 1;
@@ -63,6 +70,7 @@
             white-space: pre-wrap;
             font-size: 15px;
             color: #cccccc;
+            font-family: 'Consolas', monospace;
         }
         .input-line {
             display: flex;
@@ -74,6 +82,7 @@
         .input-line span {
             color: #0f0;
             margin-right: 5px;
+            font-weight: bold;
         }
         .input-line input {
             flex: 1;
@@ -81,7 +90,7 @@
             border: none;
             color: white;
             outline: none;
-            font-family: inherit;
+            font-family: 'Consolas', monospace;
             font-size: 15px;
         }
     </style>
@@ -89,35 +98,33 @@
 <body>
 
 <header>
-    <strong>LOCAL PYTHON SERVER</strong>
+    <strong>PYTHON SERVER IDE</strong>
     <button onclick="runCode()">▶ RUN</button>
     <button class="stop" onclick="stopCode()">⏹ STOP</button>
+    <span style="font-size: 12px; color: #888; margin-left: auto;">Tab = 4 пробела</span>
 </header>
 
 <div class="main">
     <div class="editor">
-        <div style="margin-bottom:5px">main.py</div>
-        <textarea id="code" spellcheck="false">
-import time
+        <div style="margin-bottom:5px; color:#aaa; font-size:12px">main.py</div>
+        <textarea id="code" spellcheck="false" placeholder="Пиши код здесь...">
+def factorial(n):
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n - 1)
 
-name = input("Введите ваше имя: ")
-print(f"Привет, {name}!")
-
-print("Начинаю отсчет...")
-for i in range(1, 6):
-    print(f"Секунда {i}")
-    time.sleep(1)
-
-print("Готово!")
+num = int(input("Введите число для факториала: "))
+print(f"Факториал {num} равен {factorial(num)}")
         </textarea>
     </div>
     
     <div class="terminal-container">
-        <div style="margin-bottom:5px">Terminal</div>
+        <div style="margin-bottom:5px; color:#aaa; font-size:12px">Terminal Output</div>
         <div id="terminal" class="terminal-window"></div>
         <div class="input-line">
             <span>>>></span>
-            <input type="text" id="term-input" placeholder="Ввод данных здесь..." autocomplete="off">
+            <input type="text" id="term-input" placeholder="..." autocomplete="off">
         </div>
     </div>
 </div>
@@ -126,35 +133,94 @@ print("Готово!")
     const socket = io();
     const terminal = document.getElementById('terminal');
     const termInput = document.getElementById('term-input');
+    const codeEditor = document.getElementById('code');
 
-    // Получение вывода от сервера
-    socket.on('terminal_output', function(msg) {
-        terminal.innerText += msg.text;
-        terminal.scrollTop = terminal.scrollHeight; // Автопрокрутка вниз
+    // ==========================================
+    // ЛОГИКА ТАБУЛЯЦИИ И ОТСТУПОВ (САМОЕ ВАЖНОЕ)
+    // ==========================================
+    codeEditor.addEventListener('keydown', function(e) {
+        // 1. Обработка клавиши TAB
+        if (e.key === 'Tab') {
+            e.preventDefault(); // Отменяем уход фокуса
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+
+            // Вставляем 4 пробела
+            this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+
+            // Возвращаем курсор на место (после пробелов)
+            this.selectionStart = this.selectionEnd = start + 4;
+        }
+
+        // 2. Обработка клавиши ENTER (Автоотступ)
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const value = this.value;
+
+            // Находим начало текущей строки
+            const lastNewLine = value.lastIndexOf('\n', start - 1);
+            const currentLineStart = lastNewLine + 1;
+            // Получаем текст текущей строки до курсора
+            const currentLine = value.substring(currentLineStart, start);
+
+            // Считаем текущие пробелы в начале строки (отступ)
+            const match = currentLine.match(/^(\s*)/);
+            const currentIndent = match && match[1] ? match[1] : '';
+
+            // Проверяем, заканчивается ли строка на двоеточие (игнорируя пробелы справа)
+            let newIndent = currentIndent;
+            if (currentLine.trimEnd().endsWith(':')) {
+                newIndent += "    "; // Добавляем еще 4 пробела
+            }
+
+            // Вставляем новую строку + отступ
+            const insert = "\n" + newIndent;
+            this.value = value.substring(0, start) + insert + value.substring(end);
+
+            // Ставим курсор в конец отступа
+            this.selectionStart = this.selectionEnd = start + insert.length;
+            
+            // Прокручиваем к курсору, если нужно
+            this.blur();
+            this.focus();
+        }
     });
 
-    // Запуск кода
+    // ==========================================
+    // ЛОГИКА СЕРВЕРА
+    // ==========================================
+
+    socket.on('terminal_output', function(msg) {
+        terminal.innerText += msg.text;
+        terminal.scrollTop = terminal.scrollHeight;
+    });
+
     function runCode() {
-        const code = document.getElementById('code').value;
-        terminal.innerText = "=== Запуск процесса ===\n";
+        const code = codeEditor.value;
+        terminal.innerText = "=== Запуск ===\n";
         socket.emit('run_code', {code: code});
         termInput.focus();
     }
 
-    // Остановка кода
     function stopCode() {
         socket.emit('stop_code');
     }
 
-    // Отправка ввода (Enter)
     termInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             const text = termInput.value;
-            // Показываем в терминале, что мы ввели
             terminal.innerText += text + "\n";
-            // Отправляем на сервер
             socket.emit('send_input', {input: text});
             termInput.value = '';
+        }
+    });
+    
+    // Горячая клавиша Ctrl+Enter для запуска
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            runCode();
         }
     });
 </script>
