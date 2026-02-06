@@ -101,21 +101,21 @@
     <strong>PYTHON SERVER IDE</strong>
     <button onclick="runCode()">▶ RUN</button>
     <button class="stop" onclick="stopCode()">⏹ STOP</button>
-    <span style="font-size: 12px; color: #888; margin-left: auto;">Tab = 4 пробела</span>
+        <span style="font-size: 12px; color: #888; margin-left: auto;">Tab = 4 spaces</span>
 </header>
 
 <div class="main">
     <div class="editor">
         <div style="margin-bottom:5px; color:#aaa; font-size:12px">main.py</div>
-        <textarea id="code" spellcheck="false" placeholder="Пиши код здесь...">
+        <textarea id="code" spellcheck="false" placeholder="Write code here...">
 def factorial(n):
     if n == 0:
         return 1
     else:
         return n * factorial(n - 1)
 
-num = int(input("Введите число для факториала: "))
-print(f"Факториал {num} равен {factorial(num)}")
+num = int(input("Enter number for factorial: "))
+print(f"Factorial of {num} is {factorial(num)}")
         </textarea>
     </div>
     
@@ -136,60 +136,60 @@ print(f"Факториал {num} равен {factorial(num)}")
     const codeEditor = document.getElementById('code');
 
     // ==========================================
-    // ЛОГИКА ТАБУЛЯЦИИ И ОТСТУПОВ (САМОЕ ВАЖНОЕ)
+    // TAB AND INDENT LOGIC (MOST IMPORTANT)
     // ==========================================
     codeEditor.addEventListener('keydown', function(e) {
-        // 1. Обработка клавиши TAB
+        // 1. Handle TAB key
         if (e.key === 'Tab') {
-            e.preventDefault(); // Отменяем уход фокуса
+            e.preventDefault(); // Cancel focus loss
             const start = this.selectionStart;
             const end = this.selectionEnd;
 
-            // Вставляем 4 пробела
+            // Insert 4 spaces
             this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
 
-            // Возвращаем курсор на место (после пробелов)
+            // Return cursor to position (after spaces)
             this.selectionStart = this.selectionEnd = start + 4;
         }
 
-        // 2. Обработка клавиши ENTER (Автоотступ)
+        // 2. Handle ENTER key (Auto-indent)
         if (e.key === 'Enter') {
             e.preventDefault();
             const start = this.selectionStart;
             const end = this.selectionEnd;
             const value = this.value;
 
-            // Находим начало текущей строки
+            // Find current line start
             const lastNewLine = value.lastIndexOf('\n', start - 1);
             const currentLineStart = lastNewLine + 1;
-            // Получаем текст текущей строки до курсора
+            // Get current line text before cursor
             const currentLine = value.substring(currentLineStart, start);
 
-            // Считаем текущие пробелы в начале строки (отступ)
+            // Count current spaces at line start (indent)
             const match = currentLine.match(/^(\s*)/);
             const currentIndent = match && match[1] ? match[1] : '';
 
-            // Проверяем, заканчивается ли строка на двоеточие (игнорируя пробелы справа)
+            // Check if line ends with colon (ignoring trailing spaces)
             let newIndent = currentIndent;
             if (currentLine.trimEnd().endsWith(':')) {
-                newIndent += "    "; // Добавляем еще 4 пробела
+                newIndent += "    "; // Add 4 more spaces
             }
 
-            // Вставляем новую строку + отступ
+            // Insert new line + indent
             const insert = "\n" + newIndent;
             this.value = value.substring(0, start) + insert + value.substring(end);
 
-            // Ставим курсор в конец отступа
+            // Place cursor at end of indent
             this.selectionStart = this.selectionEnd = start + insert.length;
             
-            // Прокручиваем к курсору, если нужно
+            // Scroll to cursor if needed
             this.blur();
             this.focus();
         }
     });
 
     // ==========================================
-    // ЛОГИКА СЕРВЕРА
+    // SERVER LOGIC
     // ==========================================
 
     socket.on('terminal_output', function(msg) {
@@ -199,7 +199,7 @@ print(f"Факториал {num} равен {factorial(num)}")
 
     function runCode() {
         const code = codeEditor.value;
-        terminal.innerText = "=== Запуск ===\n";
+        terminal.innerText = "=== Running ===";
         socket.emit('run_code', {code: code});
         termInput.focus();
     }
@@ -217,7 +217,7 @@ print(f"Факториал {num} равен {factorial(num)}")
         }
     });
     
-    // Горячая клавиша Ctrl+Enter для запуска
+    // Hotkey Ctrl+Enter to run
     document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 'Enter') {
             runCode();

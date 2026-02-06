@@ -1,5 +1,5 @@
 import eventlet
-eventlet.monkey_patch() # <--- ОЧЕНЬ ВАЖНО: Делает сервер асинхронным
+eventlet.monkey_patch() # <--- VERY IMPORTANT: Makes the server asynchronous
 
 import sys
 import subprocess
@@ -10,15 +10,15 @@ from flask_socketio import SocketIO
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-# Разрешаем асинхронность
+# Enable asynchronous mode
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# Глобальная переменная процесса
+# Global process variable
 process = None
 process_lock = threading.Lock()
 
 def output_reader(proc, out_queue):
-    """Читает вывод процесса (stdout)"""
+    """Reads process output (stdout)"""
     try:
         for line in iter(proc.stdout.readline, b''):
             out_queue.put(('stdout', line.decode(errors='replace')))
@@ -26,7 +26,7 @@ def output_reader(proc, out_queue):
         pass
 
 def error_reader(proc, out_queue):
-    """Читает ошибки процесса (stderr)"""
+    """Reads process errors (stderr)"""
     try:
         for line in iter(proc.stderr.readline, b''):
             out_queue.put(('stderr', line.decode(errors='replace')))
@@ -38,11 +38,11 @@ def index():
     return render_template('index.html')
 
 def background_execution(code):
-    """Эта функция работает в фоне и не блокирует сервер"""
+    """This function runs in the background and doesn't block the server"""
     global process
     
     with process_lock:
-        # Убиваем старый процесс, если есть
+        # Kill old process if exists
         if process and process.poll() is None:
             process.kill()
 
@@ -55,13 +55,13 @@ def background_execution(code):
                 bufsize=0
             )
         except Exception as e:
-            socketio.emit('terminal_output', {'text': f'Ошибка запуска: {e}\n'})
+            socketio.emit('terminal_output', {'text': f'Execution error: {e}\n'})
             return
 
-    # Очередь для сбора данных от потоков
+    # Queue for collecting data from threads
     q = queue.Queue()
     
-    # Запускаем потоки чтения (они не блокируют eventlet)
+    # Start reading threads (they don't block eventlet)
     t1 = threading.Thread(target=output_reader, args=(process, q))
     t2 = threading.Thread(target=error_reader, args=(process, q))
     t1.daemon = True
@@ -69,51 +69,51 @@ def background_execution(code):
     t1.start()
     t2.start()
 
-    # Главный цикл чтения очереди
+    # Main queue reading loop
     while True:
-        # Если процесс умер и очередь пуста — выходим
+        # If process died and queue is empty - exit
         if process.poll() is not None and q.empty():
             break
         
         try:
-            # Читаем из очереди (ждем немного, чтобы не грузить ЦП)
+            # Read from queue (wait a bit to not overload CPU)
             msg_type, line = q.get(timeout=0.05)
             socketio.emit('terminal_output', {'text': line})
         except queue.Empty:
-            socketio.sleep(0.01) # Важно! Даем серверу "подышать" для обработки input
+            socketio.sleep(0.01) # Important! Give server time to process input
             continue
     
-    socketio.emit('terminal_output', {'text': '\n--- Программа завершена ---\n'})
+    socketio.emit('terminal_output', {'text': '\n--- Program finished ---\n'})
 
 
 @socketio.on('run_code')
 def run_code(data):
-    """Обработчик кнопки RUN"""
+    """RUN button handler"""
     code = data.get('code')
-    # Запускаем выполнение в ФОНЕ, чтобы сервер мог принимать input
+    # Run in BACKGROUND so server can accept input
     socketio.start_background_task(target=background_execution, code=code)
 
 @socketio.on('send_input')
 def send_input(data):
-    """Обработчик ввода пользователя"""
+    """User input handler"""
     global process
     user_input = data.get('input') + '\n'
     
     if process and process.poll() is None:
         try:
             process.stdin.write(user_input.encode())
-            process.stdin.flush() # Проталкиваем данные
+            process.stdin.flush() # Push the data
         except Exception as e:
-            socketio.emit('terminal_output', {'text': f'Ошибка ввода: {e}\n'})
+            socketio.emit('terminal_output', {'text': f'Input error: {e}\n'})
 
 @socketio.on('stop_code')
 def stop_code():
     global process
     if process and process.poll() is None:
         process.kill()
-        socketio.emit('terminal_output', {'text': '\n--- Остановлено пользователем ---\n'})
+        socketio.emit('terminal_output', {'text': '\n--- Stopped by user ---\n'})
 
 if __name__ == '__main__':
-    print("Сервер перезапущен. Порт 5000.")
-    # Используем socketio.run вместо app.run
+    print("Server restarted. Port 5000.")
+    # Use socketio.run instead of app.run
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
