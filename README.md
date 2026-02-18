@@ -1,121 +1,45 @@
-# 🐍 Python Web Terminal / Compiler
+# ⚡ Python Remote Execution Environment (Web Terminal)
 
 [![Python](https://img.shields.io/badge/Python-3.x-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-SocketIO-lightgrey.svg)](https://flask-socketio.readthedocs.io/)
+[![Architecture](https://img.shields.io/badge/Architecture-Async%20Subprocess-orange.svg)]()
 
 <!-- Language Switcher -->
 <div align="center">
-  <a href="#english">🇬🇧 English</a> | <a href="#russian">🇷🇺 Русский</a>
+  <h3>
+    🇬🇧 English | <a href="README.ru.md">🇷🇺 Русский</a>
+  </h3>
 </div>
 
 ---
 
-<a name="english"></a>
-## 🇬🇧 English Description
+## Concept & Architecture
 
-A fully functional web-based Python IDE that acts as a real terminal. Unlike client-side compilers (like Pyodide), this project runs code on your **backend server**, allowing full access to the file system, network, and Python standard libraries.
+This project is not just a syntax highlighter. It is a **fully asynchronous remote execution engine** that brings the power of a local terminal to the browser.
 
-It uses **Flask** and **Socket.IO** to stream stdout/stderr in real-time and handle user input (`input()`) without freezing the browser.
+Most web-based Python runners fail at two things:
+1.  **Blocking I/O:** They freeze when `time.sleep()` is called.
+2.  **Interactivity:** They cannot handle `input()` requests without halting the entire server.
 
-### ✨ Features
-*   **Real-time Output:** See `print()` results immediately as they happen (good for loops with `time.sleep`).
-*   **Interactive Input:** Full support for `input()` function. The server waits for browser input.
-*   **Smart Editor:**
-    *   **Tab:** Inserts 4 spaces.
-    *   **Enter:** Auto-indents based on the previous line.
-    *   **Colons (`:`):** Automatically adds extra indentation after a colon.
-*   **Process Control:** Stop/Kill button to terminate infinite loops.
+**This project solves both.** It creates a bridge between the Web Interface and the Server Kernel using WebSockets, allowing for real-time, bi-directional communication.
 
-### 🚀 Installation & Run
+### 🛠 Under the Hood: How it Works
 
-1.  **Clone or download** the repository.
-2.  **Navigate to the project folder:**
-    ```bash
-    cd path/to/project
-    ```
-3.  **Create a virtual environment:**
-    ```bash
-    # Linux/Mac
-    python3 -m venv venv
-    source venv/bin/activate
+The magic lies in how the server manages processes. It doesn't just `eval()` code.
 
-    # Windows
-    python -m venv venv
-    venv\Scripts\activate
-    ```
-4.  **Install dependencies:**
-    ```bash
-    pip install flask flask-socketio eventlet
-    ```
-5.  **Run the server:**
-    ```bash
-    python app.py
-    ```
-6.  **Open in browser:**
-    Go to `http://127.0.0.1:5000`
+1.  **Process Isolation:** When you click "Run", the server spawns a completely separate OS subprocess (`subprocess.Popen`). This ensures the server remains responsive even if the user code crashes or loops infinitely.
+2.  **Non-Blocking Streams:** Background threads monitor the `stdout` and `stderr` pipes of the subprocess.
+3.  **Real-Time Transport:** As soon as the Python process outputs a line, it is pushed into a queue and immediately emitted to the frontend via **Socket.IO**.
+4.  **Interactive Input:** When the Python process requests input, it pauses. The server stays alive. When you type in the browser, the data is sent via WebSocket and injected directly into the subprocess's `stdin`.
 
-### ⚠️ Security Warning
-**DO NOT HOST THIS PUBLICLY.**
-This application executes arbitrary code on your machine. If you host this on a public IP, anyone can delete your files or run malicious commands. Use it only on `localhost` (127.0.0.1).
+### 🚀 Capabilities
 
----
-<div align="center">
-  <a href="#english">⬆️ Back to Top</a>
-</div>
----
+*   **True Interactivity:** Run scripts that require user input (`input()`) just like in a real console.
+*   **Live Streaming:** Watch loops execute in real-time (perfect for scripts with delays or progress bars).
+*   **Smart Editor:** A custom-built logic for the `textarea` that handles indentation (Tabs) and auto-formatting (Enter after `:`) similarly to VS Code.
+*   **Process Control:** Full control over the lifecycle. You can kill/terminate running scripts instantly.
 
-<a name="russian"></a>
-## 🇷🇺 Описание на Русском
+### 📥 Installation & Usage
+To run this project on your local machine, please refer to the installation guide:
 
-Полноценная веб-IDE для Python, которая работает как настоящий терминал. В отличие от браузерных компиляторов, этот проект запускает код на **вашем сервере**, что дает полный доступ к файловой системе и библиотекам.
-
-Использует **Flask** и **Socket.IO** для потоковой передачи вывода в реальном времени и обработки пользовательского ввода (`input()`) без зависания страницы.
-
-### ✨ Возможности
-*   **Живой вывод:** Результат `print()` появляется мгновенно (работает с `time.sleep`).
-*   **Интерактивный ввод:** Полная поддержка функции `input()`. Сервер ждет, пока вы введете данные в браузере.
-*   **Умный редактор:**
-    *   **Tab:** Вставляет 4 пробела.
-    *   **Enter:** Сохраняет отступ предыдущей строки.
-    *   **Двоеточие (`:`):** Автоматически добавляет отступ на новой строке после двоеточия.
-*   **Управление:** Кнопка "Stop" для экстренной остановки скрипта.
-
-### 🚀 Установка и Запуск
-
-1.  **Скачайте проект** и откройте папку в терминале.
-2.  **Перейдите в папку проекта:**
-    ```bash
-    cd путь/к/папке
-    ```
-3.  **Создайте виртуальное окружение (обязательно):**
-    ```bash
-    # Linux/Mac
-    python3 -m venv venv
-    source venv/bin/activate
-
-    # Windows
-    python -m venv venv
-    venv\Scripts\activate
-    ```
-4.  **Установите библиотеки:**
-    ```bash
-    pip install flask flask-socketio eventlet
-    ```
-5.  **Запустите сервер:**
-    ```bash
-    python app.py
-    ```
-6.  **Откройте в браузере:**
-    Перейдите по адресу `http://127.0.0.1:5000`
-
-### 🔧 Решение проблем
-*   **TemplateNotFound: index.html**: Убедитесь, что файл `index.html` лежит внутри папки `templates`.
-*   **Address already in use**: Порт 5000 занят. Остановите старый процесс или убейте его командой `fuser -k 5000/tcp` (Linux).
-
-### ⚠️ Предупреждение о безопасности
-**НЕ ЗАПУСКАЙТЕ ЭТОТ САЙТ В ОБЩЕМ ИНТЕРНЕТЕ.**
-Приложение выполняет любой код на вашем компьютере. Если открыть доступ извне, любой пользователь сможет удалить ваши файлы. Используйте только локально (`localhost`).
-
-<div align="center">
-  <a href="#russian">⬆️ Наверх</a>
-</div>
+👉 **[READ INSTALLATION GUIDE (LOCALHOST.md)](LOCALHOST.md)**
